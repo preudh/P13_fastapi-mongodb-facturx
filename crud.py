@@ -1,16 +1,19 @@
 # import statements
-import bson
-from fastapi import APIRouter, UploadFile, Response, File
-from starlette.responses import FileResponse
-from database import collection
-from bson import ObjectId
-import os
+import bson # used to convert the file to binary
+from fastapi import UploadFile, File # used to upload
+from database import collection # used to connect to the database
+from fastapi import APIRouter, HTTPException # used to create a router
+from fastapi.responses import StreamingResponse # used to stream the file
+from starlette.responses import Response # used to send a response
+from io import BytesIO # used to create a file in memory
+from bson import ObjectId # used to convert the id to string
 
-
+# Allow to group routes
 invoice_router = APIRouter()
 
 
-# getting all invoices ok
+# getting all invoices id and file name ok
+# Ask the collection MongoDB for all the documents and return a list of dictionaries with the id and file_name of each invoice
 @invoice_router.get('/invoices')
 async def get_all_invoices_id_and_file_name():
     list_inv = []  # create an empty list
@@ -20,26 +23,34 @@ async def get_all_invoices_id_and_file_name():
         list_inv.append({"id": str(document["_id"]), "file_name": document["file_name"]})
     return list_inv  # return the list of invoices
 
+# getting a specific invoice by id
+# Find a specific document in the collection MongoDB
+# Write the file in the ram then return the file as a FileResponse allowing the user to download the file
+@invoice_router.get('/invoices/{invoiceId}', response_class = StreamingResponse)
+async def find_invoice_by_id(invoiceId: str):
+    invoice_record = await collection.find_one({"_id": ObjectId(invoiceId)})
 
-# getting a specific invoice ok
-@invoice_router.get('/invoices/{invoiceId}')
-async def find_invoice_by_id(invoiceId):
-    invoiceId = await collection.find_one({"_id": ObjectId(invoiceId)})
-    found_invoice = invoiceId["file"]  # this is the file that we want to download
-    found_invoice = bson.binary.Binary(found_invoice)  # convert the file to binary
-    print(os.getcwd())
-    if found_invoice:
-        with open("./pdf_extract/found_invoice.pdf", "wb") as file:  # open the file in write binary mode
-            found_invoice.pdf = file.write(found_invoice)
-            # file_path used to write the file
-            file_path_pdf = "./pdf_extract/found_invoice.pdf"
-            return FileResponse(path = file_path_pdf, filename = file.name,
-                                media_type = "application/pdf")  # return the file
-    else:  # if the file is not found
-        return Response(content = "File not found", media_type = "text/plain")  # return a text response
+    if not invoice_record:
+        raise HTTPException(status_code = 404, detail = "Invoice not found") # 404 Not Found
+
+    found_invoice = invoice_record.get("file") # this is the file that we want to download
+
+    if not found_invoice: # if the file is not found
+        raise HTTPException(status_code = 404, detail = "Invoice file not found") # 404 Not Found
 
 
-# creating invoice in DB ok but 422 validation error
+    pdf_in_memory = BytesIO(found_invoice)  # create a file in memory
+    pdf_in_memory.seek(0)  # move the cursor to the beginning of the file
+
+    headers = {
+        'Content-Disposition': 'attachment; filename="invoice.pdf"'
+    } # Force the browser to download the file
+
+    return StreamingResponse(pdf_in_memory, media_type = 'application/pdf', headers = headers) # return the file
+
+
+# Define a route for creating a new invoice. Read the file and convert it to binary then insert in the collection MongoDB
+# Then send success message
 @invoice_router.post('/invoices')
 async def create_invoice(file: UploadFile = File(...)):
     # convert the file to binaryfile
@@ -50,7 +61,7 @@ async def create_invoice(file: UploadFile = File(...)):
     return Response(content = "File uploaded successfully", media_type = "text/plain")
 
 
-# update invoice in DB  ok but 422 validation error
+# Define a route to update an existing invoice in DB with its ID  ok but 422 validation error
 @invoice_router.put('/invoices/{invoiceId}')
 async def update_invoice(invoiceId, file: UploadFile = File(...)):
     # convert the file to binaryfile
@@ -63,10 +74,16 @@ async def update_invoice(invoiceId, file: UploadFile = File(...)):
     return Response(content = "File updated successfully", media_type = "text/plain")
 
 
-# Delete invoice ok but 422 validation error
+# Delete invoice by using its ID ok but 422 validation error
+# send success message
 @invoice_router.delete('/invoices/{invoiceId}')
 async def delete_invoice(invoiceId):
     # finds the student deletes it and also returns the same student object
     await collection.delete_one({"_id": ObjectId(invoiceId)})
     # return invoiceEntity(await collection.find_one_and_delete({"_id": ObjectId(invoiceId)}))
     return {"message": "File deleted successfully"}
+
+
+
+
+
