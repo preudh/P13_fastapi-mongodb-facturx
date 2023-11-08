@@ -1,3 +1,11 @@
+Overview
+
+This is Project 13, a part of the Python Developer training provided by OpenClassrooms. The objective of this project is
+to develop an API using the FastAPI framework in conjunction with a MongoDB database to manage invoices stored in PDF
+format with embedded XML. This solution caters to businesses seeking to digitize and programmatically access their
+invoice data.
+
+ 
 1. Install python
 https://www.python.org/downloads/
 2. Install mongodb community server
