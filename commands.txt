@@ -1,0 +1,5 @@
+**run your test script**
+simply run pytest in the root directory of your project:
+pytest
+pytest will automatically discover all files starting with test_, run the functions that start with test inside those
+files, and provide you with a report detailing which tests passed and which failed.
