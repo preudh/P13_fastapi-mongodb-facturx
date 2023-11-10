@@ -1,29 +1,28 @@
-# Description: This file contains the code to connect to the MongoDB database.
-import motor.motor_asyncio
+# Description: Ce fichier contient les paramètres de connexion à la base de données MongoDB.
+from motor.motor_asyncio import AsyncIOMotorClient
+from dotenv import load_dotenv
 import os
 
-def get_database_client():
-    # Use a different URI if running in a test environment
-    # URI is the connection string to connect to MongoDB
-    db_uri = os.getenv('MONGODB_URI', 'mongodb://localhost:27017/') # MONGODB_URI is the name of the environment
-    # variable and mongodb://localhost:27017/ is the default value
-    return motor.motor_asyncio.AsyncIOMotorClient(db_uri)
+# Charger les variables d'environnement à partir d'un fichier .env situé dans le même répertoire ou à l'emplacement spécifié.
+load_dotenv()
 
-def get_database(client):
-    # Choose the database to use based on an environment variable
-    database_name = os.getenv('MONGODB_DB', 'local') # MONGO_DB is the name of the environment variable and local is the
-    # default value
-    return client[database_name] # MONGODB_DB is the name of the environment variable and local is the default value
-    # return client[database_name] with database_name = local or MONGODB_DB
+# Variable d'environnement pour distinguer l'environnement de développement de la production.
+FASTAPI_ENV = os.getenv('FASTAPI_ENV', 'development')
 
-def get_collection(database):
-    # Choose the collection to use based on an environment variable
-    collection_name = os.getenv('MONGODB_COLLECTION', 'invoice') # MONGODB_COLLECTION is the name of the environment
-    # variable and invoice is the default value
-    return database[collection_name]
+# URI de connexion à MongoDB pour le développement et la production.
+LOCAL_MONGODB_URI = 'mongodb://localhost:27017/'
+PRODUCTION_MONGODB_URI = os.getenv('MONGODB_URI')  # Doit être défini dans le fichier .env ou dans les variables d'environnement de Heroku.
 
-# Create the client, database, and collection using the above functions
-client = get_database_client() # USE THIS CODE TO CONNECT TO YOUR LOCAL MONGODB
-database = get_database(client) # USE THIS CODE TO CONNECT TO YOUR LOCAL MONGODB
-collection = get_collection(database) # USE THIS CODE TO CONNECT TO YOUR LOCAL MONGODB
+# Sélection de l'URI en fonction de l'environnement.
+MONGODB_URI = PRODUCTION_MONGODB_URI if FASTAPI_ENV == 'production' else LOCAL_MONGODB_URI
 
+# Initialiser le client MongoDB.
+client = AsyncIOMotorClient(MONGODB_URI)
+
+# La base de données et la collection peuvent également être paramétrées par des variables d'environnement.
+DATABASE_NAME = os.getenv('MONGODB_DB', 'local')
+COLLECTION_NAME = os.getenv('MONGODB_COLLECTION', 'invoice')
+
+# Sélectionner la base de données et la collection.
+database = client[DATABASE_NAME]
+collection = database[COLLECTION_NAME]
